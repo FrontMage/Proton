@@ -1,6 +1,6 @@
 [submodule "wine"]
 	path = wine
-	url = ../wine
+	url = https://github.com/dllu/wine.git
 [submodule "dxvk"]
 	path = dxvk
 	url = https://github.com/doitsujin/dxvk.git
@@ -71,7 +71,7 @@
 	url = https://github.com/alphacep/vosk-api
 [submodule "FEX"]
 	path = FEX
-	url = https://github.com/FEX-Emu/FEX/
+	url = https://github.com/FrontMage/FEX.git
 [submodule "libsoup"]
 	path = libsoup
 	url = https://github.com/GNOME/libsoup.git
