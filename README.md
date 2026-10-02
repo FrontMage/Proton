@@ -1,3 +1,109 @@
+# FrontMage Proton 11.0
+
+FrontMage Proton is a Linux ARM64 fork of Valve's Proton, with cumulative
+FEX compatibility fixes developed while running Battle.net, World of
+Warcraft Classic, Diablo II: Resurrected, and Diablo IV through Wine's
+ARM64EC/WOW64 bridges.
+
+The default branch is `frontmage-11.0`. Its runtime code and dependency
+pins are unchanged from the validated integration commit
+[`15fd79a9`](https://github.com/FrontMage/Proton/commit/15fd79a9fa244cf34d615f15e7a2a692f0b9dc55).
+
+## Source baseline
+
+| Component | Pinned revision |
+| --- | --- |
+| Upstream Proton | `25880e88befb52c5aa7ff162c5b00b6b8825e494` (`proton-11.0-1-beta5`) |
+| Wine ([dllu/wine](https://github.com/dllu/wine)) | `47b268da66271f08e8b3ac278685cac63c7cc5b1` |
+| FEX ([FrontMage/FEX](https://github.com/FrontMage/FEX)) | `c79e892b054ba998f2f3490ad5b48b293db82dba` |
+| DXVK | `83e503b4ae6de849ed9d2633e76e5dc5fb12119a` |
+| vkd3d-proton | `f5b06cd63a5c4b247ec47a96f2b0e98c8aa3666a` |
+
+## Cumulative fixes
+
+The historical branches preserve successive integration stages:
+
+| Branch | Added behavior |
+| --- | --- |
+| [`fix/bnet-platform`](https://github.com/FrontMage/Proton/tree/fix/bnet-platform) | Scope Battle.net Agent/AgentHelper architecture-query compatibility to those processes. |
+| [`fix/eidolon-overlapping-entry`](https://github.com/FrontMage/Proton/tree/fix/eidolon-overlapping-entry) | Preserve exact x86 entry points when a branch overlaps an instruction already represented in a multiblock. |
+| [`fix/eidolon-fetch-fault-address`](https://github.com/FrontMage/Proton/tree/fix/eidolon-fetch-fault-address) | Report the first inaccessible instruction byte for a cross-page fetch fault. |
+| [`fix/eidolon-fetch-fault-priority`](https://github.com/FrontMage/Proton/tree/fix/eidolon-fetch-fault-priority) | Prioritize a required instruction-fetch fault over decoder errors; separately exclude inactive JIT guards from fault matching. |
+| [`fix/eidolon-block-state-isolation`](https://github.com/FrontMage/Proton/tree/fix/eidolon-block-state-isolation) | Keep decoder/dispatcher error state local to each decoded block. |
+| [`fix/fex-force-tso-range`](https://github.com/FrontMage/Proton/tree/fix/fex-force-tso-range) | Correct explicit range containment and preserve configured metadata across protected-image backing-view unmaps. |
+| [`fix/fex-tso-whitelist`](https://github.com/FrontMage/Proton/tree/fix/fex-tso-whitelist) | Support module-scoped TSO whitelists with ordered ranges and instruction offsets. |
+
+The default branch contains all seven stages. Historical fixes remain
+pinned here even where equivalent generic changes have since been
+developed for upstream FEX.
+
+TSO range and whitelist settings are opt-in and depend on the exact game
+executable. Revalidate the executable identity and RVAs after updates.
+Supply and validate any game-specific TSO settings separately.
+
+Mesa/Turnip IR3 and LRZ workarounds are separate graphics-driver work.
+Android/Bionic packaging and later Android-specific Wine/FEX changes are
+maintained separately from this Linux baseline.
+
+## Build
+
+Use a native ARM64 Linux machine with GNU Make and a working Docker or
+Podman setup:
+
+```bash
+git clone --branch frontmage-11.0 --recurse-submodules https://github.com/FrontMage/Proton.git proton
+mkdir proton-build
+cd proton-build
+../proton/configure.sh --target-arch=arm64 --build-name=frontmage-11.0
+make redist
+```
+
+The output is in `proton-build/redist/`. The build uses Proton's complete
+top-level build graph, including its pinned Wine, FEX, DXVK and
+vkd3d-proton sources. See the upstream instructions below for container
+configuration and other build targets.
+
+These ARM64 builds cannot be used with x86 Steam running through FEX.
+
+## Validation
+
+Historical validation used native ARM64 Ubuntu Linux with Turnip
+Adreno 750. Results belong to specific integration stages:
+
+- The fetch-fault/JIT-guard stage reached rendered Classic WoW
+  D3D11 login and realm-selection screens.
+- The block-state and ForceTSO-range stages reached SC2's visible menu
+  and D2R's rendered D3D12 title screen; authenticated D2R gameplay was
+  also user-confirmed.
+- The D4 whitelist candidate reached the open world for about ten
+  minutes and demonstrated the intended live JIT ordering policy.
+  That run preceded a helper-only refactor. The final source passed
+  native ForceTSORange/TSOWhitelist tests, the focused 9/9 Multiblock
+  matrix, and the colored TestD3D rendering check.
+- SC2 and D2R were not rerun on the final whitelist build because their
+  installed payloads had been removed. Extended stability and thermal
+  validation remain incomplete.
+
+Game or driver updates require fresh validation against this baseline.
+
+## Credits and licensing
+
+Built on [Valve Proton](https://github.com/ValveSoftware/Proton),
+[Wine](https://www.winehq.org/),
+[FEX](https://github.com/FEX-Emu/FEX),
+[DXVK](https://github.com/doitsujin/dxvk), and
+[vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton).
+The Wine ARM64 baseline comes from
+[dllu/wine](https://github.com/dllu/wine); FrontMage maintains the
+published integration and additional FEX fixes.
+
+Each component retains its authorship and license. See this repository's
+license files and those in its submodules.
+
+---
+
+## Upstream Proton documentation
+
 Introduction
 ------------
 
