@@ -36,10 +36,18 @@ To build:
 make BUILD_ARCH=aarch64 proton-llvm
 ```
 
-To use:
+To use the locally built ARM64 LLVM image, configure from a separate build
+directory on a native ARM64 Linux host:
 
 ```
-$PROTON_SRC/configure.sh --proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64:latest
+$PROTON_SRC/configure.sh --target-arch=arm64 --proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:latest
+```
+
+For the published FrontMage baseline, use the pinned image instead of the
+local `latest` tag:
+
+```
+$PROTON_SRC/configure.sh --target-arch=arm64 --proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:4.0.20260331.220802-0
 ```
 
 

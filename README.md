@@ -47,23 +47,72 @@ maintained separately from this Linux baseline.
 
 ## Build
 
-Use a native ARM64 Linux machine with GNU Make and a working Docker or
-Podman setup:
+Use a native ARM64 Linux machine (`uname -m` reports `aarch64`) with GNU
+Make and a working Docker or Podman setup. Configure from a separate build
+directory and explicitly select ARM64 and the pinned ARM64 LLVM SDK:
 
 ```bash
 git clone --branch frontmage-11.0 --recurse-submodules https://github.com/FrontMage/Proton.git proton
 mkdir proton-build
 cd proton-build
-../proton/configure.sh --target-arch=arm64 --build-name=frontmage-11.0
-make redist
+../proton/configure.sh \
+  --target-arch=arm64 \
+  --build-name=frontmage-11.0 \
+  --proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:4.0.20260331.220802-0
+build_status=0
+make -j4 redist >build.log 2>&1 || build_status=$?
+printf '%s\n' "$build_status" >build.exitcode
+printf 'Build exit status: %s\n' "$build_status"
 ```
 
 The output is in `proton-build/redist/`. The build uses Proton's complete
 top-level build graph, including its pinned Wine, FEX, DXVK and
-vkd3d-proton sources. See the upstream instructions below for container
-configuration and other build targets.
+vkd3d-proton sources. `build.log` preserves the complete output and
+`build.exitcode` records the actual make exit status; `0` means success.
+Adjust `-j4` to the memory and CPU capacity of your machine. Add
+`--enable-ccache` to configure for cached rebuilds, or
+`--container-engine=podman` / `--container-engine=docker` to choose an engine.
+Do not reuse a build directory configured for another target architecture.
+
+See the upstream instructions below for container configuration and other
+build targets. The source-root Makefile defaults to x86_64; use the explicit
+configure command above for this fork's ARM64 build.
 
 These ARM64 builds cannot be used with x86 Steam running through FEX.
+
+### Build troubleshooting
+
+A fresh build needs network access for the SDK image, recursive submodules,
+Cargo dependencies and downloaded components such as Wine Gecko, Wine Mono
+and Xalia. Configure checks whether the container can start and access the
+build directory; it does not verify every toolchain or download dependency.
+
+If downloads need an HTTP proxy, that proxy must also be reachable from the
+SDK container. On native Linux, host networking lets the container use a
+proxy listening on the host's loopback address. Set `PROTON_BUILD_PROXY_URL`
+to your actual proxy URL and port (for example, `http://127.0.0.1:PORT`), then
+configure from the build directory:
+
+```bash
+../proton/configure.sh --target-arch=arm64 --build-name=frontmage-11.0 \
+  --docker-opts="--network=host -e http_proxy=${PROTON_BUILD_PROXY_URL:?set your proxy URL} -e https_proxy=${PROTON_BUILD_PROXY_URL}"
+```
+
+The `default_pfx` stage executes the newly built ARM64 Wine and FEX bridges
+inside the SDK container to run `wineboot`, then waits for `wineserver` to
+finish. The native ARM64 build does not require a separately installed Linux
+FEX interpreter or x86 binfmt registration. A message about missing
+`sysarm32/rundll32.exe` alone does not establish a fatal build failure: the
+pinned Wine advertises ARM32 helpers while this build packages ARM64,
+ARM64EC, x86 and x86_64 PE modules. Check the real make exit status and the
+first failing command before diagnosing the source.
+
+For a build report, include the host architecture, source commit, recursive
+submodule revisions (`git submodule status --recursive` from the source
+directory), generated build `Makefile`, SDK image digest, `build.exitcode`
+and the relevant error context from `build.log`. Parallel subprojects can
+continue printing after the first failure, so the final make error may only
+be a consequence of an earlier error.
 
 ## Validation
 
@@ -174,6 +223,10 @@ to your distribution's documentation for setup instructions (e.g. Arch
 
 ## The Easy Way
 
+This inherited shortcut defaults to x86_64, including when run on an ARM64
+host. For this fork's ARM64 builds, use the separate build directory and
+explicit `--target-arch=arm64` configure command in [Build](#build).
+
 We provide a top-level Makefile which will execute most of the build commands
 for you.
 
@@ -203,7 +256,7 @@ See `make help` for other build targets and options.
 
 ```bash
 mkdir ../build && cd ../build
-../proton/configure.sh --enable-ccache --build-name=my_build
+../proton/configure.sh --target-arch=arm64 --enable-ccache --build-name=my_build
 ```
 
 Running `configure.sh` will create a `Makefile` allowing you to build Proton.
@@ -215,11 +268,13 @@ The configuration script tries to discover a working Docker or Podman setup
 to use, but you can force a compatible engine with
 `--container-engine=<executable_name>`.
 
-You can enable ccache with `--enable-cache` flag. This will mount your
+You can enable ccache with `--enable-ccache` flag. This will mount your
 `$CCACHE_DIR` or `$HOME/.ccache` inside the container.
 
-`--proton-sdk-image=registry.gitlab.steamos.cloud/proton/soldier/sdk:<version>`
-can be used to build with a custom version of the Proton SDK images.
+`--proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:4.0.20260331.220802-0`
+selects this fork's pinned ARM64 LLVM SDK. Custom images must supply the
+matching ARM64/ARM64EC toolchain; an x86_64 or non-LLVM image is not a
+substitute.
 
 Check `--help` for other configuration options.
 
@@ -266,13 +321,17 @@ subprojects fails there can be thousands of lines printed by other sub-builds
 before the top level exits. This can make the real reason of the build failing
 hard to find.
 
-Appending `2>&1 | tee build.log` will log the full build output to a `build.log`
-file. Searching that file from the bottom up for occurrences of `Error` should
-point to the right area. E.g.:
+Save the full build output and the make exit status before searching for the
+first failing subproject. A pipeline to `tee` without preserving make's
+status can report success when make failed. For example, from the configured
+build directory:
 
 ```
-make 2>&1 | tee build.log
-grep -n '] Error [0-9]' build.log
+build_status=0
+make -j4 redist >build.log 2>&1 || build_status=$?
+printf '%s\n' "$build_status" >build.exitcode
+printf 'Build exit status: %s\n' "$build_status"
+grep -n '\] Error [0-9]' build.log
 ```
 
 ```
@@ -290,14 +349,16 @@ E.g.:
 
 ```
 mkdir ../debug-proton-build && cd ../debug-proton-build
-../proton/configure.sh --enable-ccache --build-name=debug_build
+../proton/configure.sh --target-arch=arm64 --enable-ccache --build-name=debug_build
 make UNSTRIPPED_BUILD=1 install
 ```
 
 
 ### ARM64 Builds
 
-You need an ARM64 build machine and pass `--target-arch=arm64` to `configure.sh`.
+You need a native ARM64 Linux build machine and must pass
+`--target-arch=arm64` to `configure.sh` from a separate build directory. Use
+the pinned `steamrt4/sdk/arm64-llvm` image shown in [Build](#build).
 
 It's not possible to use the resulting builds in x86 Steam running via FEX.
 
