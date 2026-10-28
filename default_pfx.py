@@ -7,6 +7,9 @@
 import os
 import subprocess
 import re
+import shutil
+import struct
+import tempfile
 
 def file_is_wine_builtin_dll(path):
     if not os.path.exists(path):
@@ -71,6 +74,50 @@ def setup_dll_symlinks(default_pfx_dir, dist_dir, arm64):
                     continue
                 os.unlink(filename)
                 make_relative_symlink(target, filename)
+
+def setup_arm64_driver_host(default_pfx_dir, dist_dir):
+    """Package the AMD64 host selected by Wine's machine-aware SCM.
+
+    Both names come from the same coherent Wine build.  The distinct name
+    lets ARM64 system32 retain its native host while AMD64 drivers use FEX.
+    """
+    libdir = os.path.join(dist_dir, 'lib/wine/x86_64-windows')
+    source = os.path.join(libdir, 'winedevice.exe')
+    if not os.path.isfile(source):
+        raise RuntimeError('AMD64 Wine winedevice.exe is missing')
+    with open(source, 'rb') as binary:
+        binary.seek(0x40)
+        if not binary.read(20).startswith((b'Wine placeholder DLL', b'Wine builtin DLL')):
+            raise RuntimeError('AMD64 Wine driver host is not a builtin')
+        binary.seek(0x3c)
+        offset = binary.read(4)
+        if len(offset) != 4:
+            raise RuntimeError('Invalid AMD64 driver host DOS header')
+        binary.seek(struct.unpack('<I', offset)[0])
+        header = binary.read(6)
+    if len(header) != 6 or header[:4] != b'PE\0\0' or struct.unpack('<H', header[4:])[0] != 0x8664:
+        raise RuntimeError('Wine driver host must be an AMD64 PE')
+
+    alias = os.path.join(libdir, 'winedevice-x64.exe')
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=libdir, prefix='.winedevice-x64-', delete=False) as staged:
+            temporary = staged.name
+        shutil.copyfile(source, temporary)
+        shutil.copymode(source, temporary)
+        os.replace(temporary, alias)
+        temporary = None
+    finally:
+        if temporary is not None:
+            os.unlink(temporary)
+
+    system32 = os.path.join(default_pfx_dir, 'drive_c/windows/system32')
+    if not os.path.isdir(system32):
+        raise RuntimeError('ARM64 default prefix has no system32 directory')
+    destination = os.path.join(system32, 'winedevice-x64.exe')
+    if os.path.lexists(destination):
+        os.unlink(destination)
+    make_relative_symlink(alias, destination)
 
 KEY_RE = re.compile(r'\[(.+)\] ([0-9]+)')
 VALUE_RE = re.compile(r'"(.*)"="(.+)"')
@@ -137,6 +184,8 @@ def make_default_pfx(default_pfx_dir, dist_dir, arm64):
 
         env=local_env, check=True)
     setup_dll_symlinks(default_pfx_dir, dist_dir, arm64)
+    if arm64:
+        setup_arm64_driver_host(default_pfx_dir, dist_dir)
     fixup_drive_links(default_pfx_dir)
 
     filter_registry(os.path.join(default_pfx_dir, 'user.reg'))

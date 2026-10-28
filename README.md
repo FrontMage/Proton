@@ -26,6 +26,11 @@ INT 2C exception reconstruction. Existing observations apply to their original
 builds and devices; the new combination requires its own verification. The
 renderer exit and application reload-limit issue remains independent.
 
+The ARM64 default prefix packages `winedevice-x64.exe` from the AMD64
+`winedevice.exe` produced by the same Wine build, preserving the native
+`winedevice.exe`. This supplies the distinct host selected by the MapleStory
+driver-machine repair without importing a separately built binary.
+
 ## Cumulative fixes
 
 The historical branches preserve successive integration stages:
