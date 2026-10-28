@@ -11,7 +11,7 @@ of equivalent behavior on every platform.
 | Component | Pinned revision |
 | --- | --- |
 | Proton | `528464d6d7fb4857d61bd31073d3bb423f63fe9f` plus this integration |
-| Wine ([FrontMage/proton-wine](https://github.com/FrontMage/proton-wine)) | `c170f9a48ada10ae6f6674b04d71da8c1ffc39de` |
+| Wine ([FrontMage/proton-wine](https://github.com/FrontMage/proton-wine)) | `ddc7b3c730408048e9612dbe282d2d8283ed9366` |
 | FEX ([FrontMage/FEX](https://github.com/FrontMage/FEX)) | `7519b9605209e9e19eaf7be669dae7c1848fe5f1` |
 | DXVK | `83e503b4ae6de849ed9d2633e76e5dc5fb12119a` |
 | vkd3d-proton | `f5b06cd63a5c4b247ec47a96f2b0e98c8aa3666a` |
