@@ -1,23 +1,30 @@
 # FrontMage Proton 11.0
 
-FrontMage Proton is a Linux ARM64 fork of Valve's Proton, with cumulative
-FEX compatibility fixes developed while running Battle.net, World of
-Warcraft Classic, Diablo II: Resurrected, and Diablo IV through Wine's
-ARM64EC/WOW64 bridges.
-
-The default branch is `frontmage-11.0`. Its runtime code and dependency
-pins are unchanged from the validated integration commit
-[`15fd79a9`](https://github.com/FrontMage/Proton/commit/15fd79a9fa244cf34d615f15e7a2a692f0b9dc55).
+The `master` branch integrates the ARM Linux Proton source with Wine and FEX
+compatibility work developed for Android and ARM64EC. The previous validated
+Linux source baseline remains available on [`frontmage-11.0`](https://github.com/FrontMage/Proton/tree/frontmage-11.0).
+A combined source branch is not, by itself, a validated runtime or a claim
+of equivalent behavior on every platform.
 
 ## Source baseline
 
 | Component | Pinned revision |
 | --- | --- |
-| Upstream Proton | `25880e88befb52c5aa7ff162c5b00b6b8825e494` (`proton-11.0-1-beta5`) |
-| Wine ([dllu/wine](https://github.com/dllu/wine)) | `47b268da66271f08e8b3ac278685cac63c7cc5b1` |
-| FEX ([FrontMage/FEX](https://github.com/FrontMage/FEX)) | `c79e892b054ba998f2f3490ad5b48b293db82dba` |
+| Proton | `528464d6d7fb4857d61bd31073d3bb423f63fe9f` plus this integration |
+| Wine ([FrontMage/proton-wine](https://github.com/FrontMage/proton-wine)) | `c170f9a48ada10ae6f6674b04d71da8c1ffc39de` |
+| FEX ([FrontMage/FEX](https://github.com/FrontMage/FEX)) | `7519b9605209e9e19eaf7be669dae7c1848fe5f1` |
 | DXVK | `83e503b4ae6de849ed9d2633e76e5dc5fb12119a` |
 | vkd3d-proton | `f5b06cd63a5c4b247ec47a96f2b0e98c8aa3666a` |
+
+The Wine lineage retains the Android ARM64EC baseline, Maple embedded
+WebBrowser and driver compatibility, and the Maple frame-chain guard. It adds
+WOW64 guest-alert separation, ARM64EC system information and a native copied
+syscall dispatcher. Its ARM64EC bitmap width is configured together with the
+host address-space limit: Android 39 bits, Linux 47 bits. The FEX pin retains
+the earlier Linux fixes and adds EFLAGS, clear-only FP, jemalloc support and
+INT 2C exception reconstruction. Existing observations apply to their original
+builds and devices; the new combination requires its own verification. The
+renderer exit and application reload-limit issue remains independent.
 
 ## Cumulative fixes
 
@@ -33,7 +40,7 @@ The historical branches preserve successive integration stages:
 | [`fix/fex-force-tso-range`](https://github.com/FrontMage/Proton/tree/fix/fex-force-tso-range) | Correct explicit range containment and preserve configured metadata across protected-image backing-view unmaps. |
 | [`fix/fex-tso-whitelist`](https://github.com/FrontMage/Proton/tree/fix/fex-tso-whitelist) | Support module-scoped TSO whitelists with ordered ranges and instruction offsets. |
 
-The default branch contains all seven stages. Historical fixes remain
+This branch retains all seven stages. Historical fixes remain
 pinned here even where equivalent generic changes have since been
 developed for upstream FEX.
 
@@ -42,8 +49,8 @@ executable. Revalidate the executable identity and RVAs after updates.
 Supply and validate any game-specific TSO settings separately.
 
 Mesa/Turnip IR3 and LRZ workarounds are separate graphics-driver work.
-Android/Bionic packaging and later Android-specific Wine/FEX changes are
-maintained separately from this Linux baseline.
+Android/Bionic packaging is maintained separately; the Wine and FEX source
+branches now include the selected Android compatibility work.
 
 ## Build
 
@@ -52,12 +59,12 @@ Make and a working Docker or Podman setup. Configure from a separate build
 directory and explicitly select ARM64 and the pinned ARM64 LLVM SDK:
 
 ```bash
-git clone --branch frontmage-11.0 --recurse-submodules https://github.com/FrontMage/Proton.git proton
+git clone --branch master --recurse-submodules https://github.com/FrontMage/Proton.git proton
 mkdir proton-build
 cd proton-build
 ../proton/configure.sh \
   --target-arch=arm64 \
-  --build-name=frontmage-11.0 \
+  --build-name=frontmage-unified \
   --proton-sdk-image=registry.gitlab.steamos.cloud/proton/steamrt4/sdk/arm64-llvm:4.0.20260331.220802-0
 build_status=0
 make -j4 redist >build.log 2>&1 || build_status=$?
@@ -94,7 +101,7 @@ to your actual proxy URL and port (for example, `http://127.0.0.1:PORT`), then
 configure from the build directory:
 
 ```bash
-../proton/configure.sh --target-arch=arm64 --build-name=frontmage-11.0 \
+../proton/configure.sh --target-arch=arm64 --build-name=frontmage-unified \
   --docker-opts="--network=host -e http_proxy=${PROTON_BUILD_PROXY_URL:?set your proxy URL} -e https_proxy=${PROTON_BUILD_PROXY_URL}"
 ```
 
